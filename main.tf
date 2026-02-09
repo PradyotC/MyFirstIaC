@@ -26,7 +26,7 @@ data "aws_ami" "ubuntu" {
 resource "aws_security_group" "common_sg" {
   name        = "${var.project_name}-sg"
   description = "Allow SSH, Web, and Tailscale traffic"
-  
+
   ingress {
     from_port   = 22
     to_port     = 22
@@ -58,9 +58,14 @@ resource "aws_security_group" "common_sg" {
 resource "aws_instance" "llm_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "m7i-flex.large"
-  
+
   vpc_security_group_ids = [aws_security_group.common_sg.id]
-  
+
+  root_block_device {
+    volume_size = 20
+    volume_type = "gp3"
+  }
+
   tags = {
     Name = "${var.project_name}-Brain"
   }
@@ -70,12 +75,15 @@ resource "aws_instance" "llm_server" {
               exec > /var/log/user-data.log 2>&1
               set -e
 
-              # 1. Install Tailscale & Setup Cleanup
+              echo "STARTING USER DATA..."
+              export HOME=/root
+
+              # 1. Install Tailscale
               curl -fsSL https://tailscale.com/install.sh | sh
               sysctl -w net.ipv4.ip_forward=1
               tailscale up --authkey=${var.tailscale_auth_key_brain} --hostname=brain --ssh
 
-              # Create a service to logout on shutdown
+              # Tailscale Logout Service
               cat <<EOT > /etc/systemd/system/tailscale-cleanup.service
               [Unit]
               Description=Tailscale Logout
@@ -89,9 +97,13 @@ resource "aws_instance" "llm_server" {
               EOT
               systemctl enable tailscale-cleanup.service
 
-              # 2. Install Ollama
-              curl -fsSL https://ollama.com/install.sh | sh
+              # 2. Install Ollama (With Retry)
+              echo "Installing Ollama..."
+              for i in {1..5}; do
+                curl -fsSL https://ollama.com/install.sh | sh && break || sleep 15;
+              done
               
+              # Network Configuration
               mkdir -p /etc/systemd/system/ollama.service.d
               echo '[Service]
               Environment="OLLAMA_HOST=0.0.0.0"
@@ -100,11 +112,16 @@ resource "aws_instance" "llm_server" {
               systemctl daemon-reload
               systemctl restart ollama
               
-              # 3. Create Custom Model (RAM Fix)
-              # Wait for Ollama to be ready
+              # 3. Create Custom Model
+              echo "Waiting for Ollama service..."
               sleep 10
-              ollama pull qwen2.5-coder:3b
+              
+              echo "Pulling base model (With Retry)..."
+              for i in {1..3}; do
+                ollama pull qwen2.5-coder:3b && break || sleep 10;
+              done
 
+              echo "Creating custom Modelfile..."
               cat <<EOT > /home/ubuntu/Modelfile
               FROM qwen2.5-coder:3b
               PARAMETER num_ctx 4096
@@ -119,8 +136,24 @@ resource "aws_instance" "llm_server" {
               SYSTEM """You are a smart coding assistant. Write clean, efficient code."""
               EOT
 
-              # Create the model non-interactively
+              echo "Creating custom model 'coder-lite'..."
               ollama create coder-lite -f /home/ubuntu/Modelfile
+
+              # 4. Cleanup Logic (Requested)
+              echo "Verifying creation and cleaning up..."
+              
+              # Check if list command works AND contains our model
+              if ollama list | grep -q "coder-lite"; then
+                  echo "✅ Custom model 'coder-lite' verified."
+                  echo "🧹 Removing base model 'qwen2.5-coder:3b' to clean up CLI list..."
+                  # This removes the tag. Shared blobs are kept for coder-lite.
+                  ollama rm qwen2.5-coder:3b
+              else
+                  echo "❌ Error: Custom model 'coder-lite' not found. Skipping cleanup."
+                  exit 1
+              fi
+              
+              echo "USER DATA COMPLETE."
               EOF
 }
 
@@ -128,7 +161,7 @@ resource "aws_instance" "llm_server" {
 resource "aws_instance" "web_server" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.micro"
-  
+
   vpc_security_group_ids = [aws_security_group.common_sg.id]
 
   tags = {
@@ -141,8 +174,6 @@ resource "aws_instance" "web_server" {
               set -e
 
               echo "STARTING USER DATA..."
-
-              # Fix Environment for Build
               export HOME=/root
               export GOCACHE=/root/.cache/go-build
               export GOPATH=/root/go
@@ -152,7 +183,7 @@ resource "aws_instance" "web_server" {
               apt-get update
               apt-get install -y build-essential git curl
 
-              # 2. Install Tailscale & Setup Cleanup
+              # 2. Install Tailscale
               curl -fsSL https://tailscale.com/install.sh | sh
               tailscale up --authkey=${var.tailscale_auth_key_body} --hostname=body --ssh
 
@@ -173,10 +204,13 @@ resource "aws_instance" "web_server" {
               wget https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
               rm -rf /usr/local/go && tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
               
-              # 4. Clone & Build
+              # 4. Clone & Build (WITH RETRY LOGIC)
               echo "Cloning repository..."
-              # THIS CLONES FROM GITHUB. IF YOU DIDN'T PUSH, IT GETS OLD CODE!
-              git clone ${var.github_repo_url} /opt/myapp
+              for i in {1..5}; do
+                rm -rf /opt/myapp # Clean up partial clones
+                git clone ${var.github_repo_url} /opt/myapp && break || sleep 15;
+              done
+              
               cd /opt/myapp/backend
               
               echo "Building Go Binary..."
@@ -193,10 +227,7 @@ resource "aws_instance" "web_server" {
               User=root
               WorkingDirectory=/opt/myapp/backend
               ExecStart=/opt/myapp/backend/server
-              
-              # This sets the Environment Variable for the PROCESS
               Environment="OLLAMA_HOST=http://brain:11434"
-              
               Restart=always
               RestartSec=5
 
