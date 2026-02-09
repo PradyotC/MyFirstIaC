@@ -1,0 +1,20 @@
+FROM ./qwen2.5-coder-3b.gguf
+
+# 1. Force context to 4096 (Keep this to save RAM)
+PARAMETER num_ctx 4096
+
+# 2. Qwen 2.5 Specific Template (ChatML)
+# This tells the model: "Here is where the User speaks" and "Here is where You speak"
+TEMPLATE """{{ if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}{{ if .Prompt }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+{{ end }}<|im_start|>assistant
+{{ .Response }}<|im_end|>"""
+
+# 3. Stop Tokens (The "Curtain Drop" signals)
+# This forces the model to shut up once it outputs <|im_end|>
+PARAMETER stop "<|im_start|>"
+PARAMETER stop "<|im_end|>"
+
+SYSTEM """You are a smart coding assistant. Write clean, efficient code."""

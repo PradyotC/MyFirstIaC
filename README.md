@@ -3,6 +3,10 @@
 ```bash
 aws_access_key = "AKIAIOSFODNN7EXAMPLE"
 aws_secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+tailscale_tag_brain_access_id = "khawsderft11CNTRL"
+tailscale_tag_brain_access_token = "tskey-auth-khawsderft11CNTRL-we87tqegqwuveycwreyqrec6edfryqfere"
+tailscale_tag_body_access_id = "khploikjuq11CNTRL"
+tailscale_tag_body_access_token = "tskey-auth-khploikjuq11CNTRL-MAvBJxguittuiguyguuybtrcy6cuyuetrx"
 ```
 
 ### 2. Deployment
