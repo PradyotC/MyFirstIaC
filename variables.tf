@@ -37,6 +37,6 @@ variable "tailscale_auth_key_body" {
 variable "github_repo_url" {
   description = "URL of the repo to clone"
   type        = string
-  default     = "https://github.com/PradyotC/MyFirstIaC.git" 
+  default     = "https://github.com/PradyotC/ephemeral-split-web-llm.git" 
   # Note: Ensure this URL is correct and public, or use an SSH key in user_data
 }

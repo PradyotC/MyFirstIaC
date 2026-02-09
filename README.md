@@ -1,4 +1,4 @@
-# ☁️ Ephemeral Ollama Infrastructure (AWS + Tailscale)
+# ☁️ Ephemeral Split Web-LLM (AWS + Tailscale)
 
 An automated Infrastructure-as-Code (IaC) project to deploy a private, secure, and disposable AI Chat interface on AWS.
 
@@ -25,10 +25,12 @@ The infrastructure consists of two distinct AWS EC2 instances connected via a pr
 
 ## ✨ Key Features
 
-- **Zero-Config Deployment:** Uses `user_data` scripts to install dependencies, clone code, and build binaries automatically on boot.
+- **Scale-to-Zero:** Designed to be ephemeral. Spin it up for a session, then destroy it immediately to stop costs.
+- **Zero-Config Provisioning:** `user_data` scripts automatically install Docker, Tailscale, Go, and Ollama.
 - **Cost Optimized:** Designed to be destroyed when not in use. Includes scripts to gracefully log out of Tailscale and terminate resources.
-- **Custom Model Optimization:** Automatically creates a custom Ollama model (`coder-lite`) with a 4096 context window to prevent RAM saturation on the instance.
-- **Robust Error Handling:** Uses retry logic and HTTP ZIP downloads to bypass transient git protocol failures.
+- **Smart Resource Management:**
+    * **20GB Storage** auto-provisioned for large model files.
+    * **Custom Modelfile** (`coder-lite`) created on-the-fly to optimize RAM usage (4096 context window).
 
 ## 🛠️ Prerequisites
 
