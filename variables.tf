@@ -16,20 +16,27 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type"
+variable "project_name" {
+  description = "Project name prefix"
   type        = string
-  default     = "t3.micro"
+  default     = "Ollama-IaC"
+}
+
+variable "tailscale_auth_key_brain" {
+  description = "Tailscale Auth Key for the LLM Server (tag:brain)"
+  type        = string
+  sensitive   = true
+}
+
+variable "tailscale_auth_key_body" {
+  description = "Tailscale Auth Key for the Web Server (tag:body)"
+  type        = string
+  sensitive   = true
 }
 
 variable "github_repo_url" {
   description = "URL of the repo to clone"
   type        = string
-  default     = "https://github.com/PradyotC/basic_static_site.git"
-}
-
-variable "project_name" {
-  description = "Name prefix"
-  type        = string
-  default     = "Terraform-Nginx"
+  default     = "https://github.com/PradyotC/myfirstiac.git" 
+  # Note: Ensure this URL is correct and public, or use an SSH key in user_data
 }

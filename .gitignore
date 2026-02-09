@@ -10,3 +10,5 @@
 crash.log
 
 *.auto.tfvars
+
+*.lock.hcl
